@@ -1,0 +1,1 @@
+# haodehaode378-text-encoding-guard
