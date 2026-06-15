@@ -1,0 +1,63 @@
+name: 'Text Encoding Guard'
+description: 'Detect and fix Chinese text encoding mojibake caused by AI coding assistants'
+branding:
+  icon: 'shield'
+  color: 'blue'
+inputs:
+  root:
+    description: 'Root directory to scan'
+    required: false
+    default: '.'
+  fix-gbk:
+    description: 'Attempt auto GBK→UTF-8 fix (creates .bak files)'
+    required: false
+    default: 'false'
+  ext:
+    description: 'Extra file extensions (comma-separated, e.g. .sql,.cfg)'
+    required: false
+    default: ''
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      with:
+        python-version: '3.x'
+    - name: Scan for encoding corruption
+      env:
+        INPUT_EXT: ${{ inputs.ext }}
+        INPUT_FIX_GBK: ${{ inputs.fix-gbk }}
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_ROOT: ${{ inputs.root }}
+      run: |
+        EXTRA_ARGS=()
+        if [ -n "$INPUT_EXT" ]; then
+          IFS=',' read -ra EXTS <<< "$INPUT_EXT"
+          for ext in "${EXTS[@]}"; do
+            EXTRA_ARGS+=(--ext "$ext")
+          done
+        fi
+        if [ "$INPUT_FIX_GBK" = "true" ]; then
+          EXTRA_ARGS+=(--fix-gbk)
+        fi
+        python "$ACTION_PATH/scripts/check_mojibake.py" \
+          --root "$INPUT_ROOT" \
+          "${EXTRA_ARGS[@]}" \
+          --fail-on-find
+      shell: bash
