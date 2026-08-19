@@ -1,0 +1,53 @@
+name: Test mojibake detection (fail-on-find)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create directory with mojibake file
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/test-workdir/mojibake-scan"
+          python3 -c "
+          import os
+          content = '# Corrupted file\n'
+          content += 'description = \"\ufffd\ufffd\ufffd some corrupted text \ufffd\ufffd\ufffd\"\n'
+          content += 'print(description)\n'
+          path = os.path.join(os.environ['GITHUB_WORKSPACE'], 'test-workdir', 'mojibake-scan', 'corrupted.py')
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print('Created file with U+FFFD replacement characters')
+          "
+
+      - name: Verify mojibake file was created with correct content
+        run: |
+          python3 -c "
+          import os
+          path = os.path.join(os.environ['GITHUB_WORKSPACE'], 'test-workdir', 'mojibake-scan', 'corrupted.py')
+          with open(path, 'r', encoding='utf-8') as f:
+              content = f.read()
+          count = content.count('\ufffd')
+          print(f'U+FFFD count: {count}')
+          assert count >= 6, f'Expected at least 6 replacement chars, got {count}'
+          print('Verification passed')
+          "
+
+      - name: Run action on directory with mojibake (expect failure)
+        id: action
+        uses: .
+        with:
+          root: ${{ github.workspace }}/test-workdir/mojibake-scan
+        continue-on-error: true
+
+      - name: Assert action detected mojibake and failed
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when mojibake is detected, but outcome was '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when mojibake was detected"

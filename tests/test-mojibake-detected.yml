@@ -1,0 +1,33 @@
+name: Test mojibake detection (should fail)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a directory with mojibake content
+        run: |
+          mkdir -p /tmp/mojibake-scan
+          # Write a file containing replacement characters (U+FFFD) which score 12 each
+          # This simulates encoding corruption
+          printf 'Hello \xef\xbf\xbd\xef\xbf\xbd world\n' > /tmp/mojibake-scan/corrupted.txt
+
+      - name: Run action and expect failure
+        id: action
+        uses: .
+        with:
+          root: /tmp/mojibake-scan
+        continue-on-error: true
+
+      - name: Assert action failed due to mojibake detection
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when mojibake is detected, but outcome was '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly failed when mojibake was detected"

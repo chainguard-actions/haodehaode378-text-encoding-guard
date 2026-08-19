@@ -1,0 +1,25 @@
+name: Test clean scan (no mojibake)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a clean directory to scan
+        run: |
+          mkdir -p /tmp/clean-scan
+          echo "Hello, world! This is a clean UTF-8 file." > /tmp/clean-scan/hello.txt
+          echo "# Clean Python file" > /tmp/clean-scan/clean.py
+          echo "print('No mojibake here')" >> /tmp/clean-scan/clean.py
+
+      - id: action
+        uses: .
+        with:
+          root: /tmp/clean-scan
+
+      - name: Assert action succeeded (no mojibake found)
+        run: |
+          echo "Action completed successfully - no mojibake detected"
+          echo "PASS"

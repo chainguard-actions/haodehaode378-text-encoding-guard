@@ -43,21 +43,21 @@ runs:
       env:
         INPUT_EXT: ${{ inputs.ext }}
         INPUT_FIX_GBK: ${{ inputs.fix-gbk }}
-        ACTION_PATH: ${{ github.action_path }}
         INPUT_ROOT: ${{ inputs.root }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        EXTRA_ARGS=()
+        args=()
         if [ -n "$INPUT_EXT" ]; then
           IFS=',' read -ra EXTS <<< "$INPUT_EXT"
           for ext in "${EXTS[@]}"; do
-            EXTRA_ARGS+=(--ext "$ext")
+            args+=(--ext "$ext")
           done
         fi
         if [ "$INPUT_FIX_GBK" = "true" ]; then
-          EXTRA_ARGS+=(--fix-gbk)
+          args+=(--fix-gbk)
         fi
         python "$ACTION_PATH/scripts/check_mojibake.py" \
           --root "$INPUT_ROOT" \
-          "${EXTRA_ARGS[@]}" \
+          "${args[@]}" \
           --fail-on-find
       shell: bash

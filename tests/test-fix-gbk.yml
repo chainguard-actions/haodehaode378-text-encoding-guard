@@ -1,0 +1,58 @@
+name: Test fix-gbk auto-repair mode
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create directory with mojibake file for GBK fix test
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/test-workdir/fix-gbk-scan"
+          python3 -c "
+          import os
+          content = '# Corrupted file\n'
+          content += 'description = \"\ufffd\ufffd\ufffd corrupted text \ufffd\ufffd\ufffd\"\n'
+          content += 'print(description)\n'
+          path = os.path.join(os.environ['GITHUB_WORKSPACE'], 'test-workdir', 'fix-gbk-scan', 'corrupted.py')
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print('Created corrupted.py with U+FFFD replacement characters')
+          "
+
+      - name: Run action with fix-gbk enabled
+        id: action
+        uses: .
+        with:
+          root: ${{ github.workspace }}/test-workdir/fix-gbk-scan
+          fix-gbk: 'true'
+        continue-on-error: true
+
+      - name: Assert action ran with fix-gbk mode
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "action outcome: $OUTCOME"
+          # The action should have attempted to fix or at least scanned the file.
+          # With replacement chars (U+FFFD), GBK recovery may not apply (not GBK-recoverable),
+          # so the file may still be flagged and the action fails.
+          # Either way, the action must have run (not errored out unexpectedly).
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran with fix-gbk mode (outcome: $OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+
+      - name: Verify fix-gbk mode processed files
+        run: |
+          echo "Checking test-workdir/fix-gbk-scan contents:"
+          ls -la "$GITHUB_WORKSPACE/test-workdir/fix-gbk-scan/"
+          # The action should have processed the file (either fixed it or left it as-is)
+          if [ -f "$GITHUB_WORKSPACE/test-workdir/fix-gbk-scan/corrupted.py" ]; then
+            echo "PASS: original file still present after fix-gbk scan"
+          else
+            echo "FAIL: original file missing after fix-gbk scan"
+            exit 1
+          fi

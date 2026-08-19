@@ -1,0 +1,53 @@
+name: Test extra file extensions scanning
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with extra extensions on committed clean fixture files
+        id: action-clean
+        uses: .
+        with:
+          root: ${{ github.workspace }}/tests/fixtures/clean-ext
+          ext: '.sql,.cfg'
+
+      - name: Assert action succeeded with extra extensions on clean files
+        run: |
+          echo "Action completed successfully scanning with extra extensions"
+          echo "PASS"
+
+      - name: Create directory with mojibake in a Python file (default extension)
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/test-workdir/ext-scan-bad"
+          python3 -c "
+          import os
+          content = '# Corrupted file\n'
+          content += 'description = \"\ufffd\ufffd\ufffd corrupted text \ufffd\ufffd\ufffd\"\n'
+          content += 'SELECT 1  # also has sql-like content\n'
+          path = os.path.join(os.environ['GITHUB_WORKSPACE'], 'test-workdir', 'ext-scan-bad', 'bad.py')
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content)
+          print('Created bad.py with U+FFFD replacement characters')
+          "
+
+      - name: Run action with extra extensions on directory with mojibake (expect failure)
+        id: action-bad
+        uses: .
+        with:
+          root: ${{ github.workspace }}/test-workdir/ext-scan-bad
+          ext: '.sql'
+        continue-on-error: true
+
+      - name: Assert action detected mojibake in the directory
+        env:
+          OUTCOME: ${{ steps.action-bad.outcome }}
+        run: |
+          echo "action outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail when mojibake is detected, but outcome was '$OUTCOME'"
+            exit 1
+          fi
+          echo "PASS: action correctly detected mojibake when extra extensions are specified"
