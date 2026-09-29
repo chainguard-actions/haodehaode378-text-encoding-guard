@@ -46,18 +46,20 @@ runs:
         INPUT_ROOT: ${{ inputs.root }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        args=()
+        EXT_ARGS=()
         if [ -n "$INPUT_EXT" ]; then
           IFS=',' read -ra EXTS <<< "$INPUT_EXT"
           for ext in "${EXTS[@]}"; do
-            args+=(--ext "$ext")
+            EXT_ARGS+=(--ext "$ext")
           done
         fi
+        FIX_ARGS=()
         if [ "$INPUT_FIX_GBK" = "true" ]; then
-          args+=(--fix-gbk)
+          FIX_ARGS=(--fix-gbk)
         fi
         python "$ACTION_PATH/scripts/check_mojibake.py" \
           --root "$INPUT_ROOT" \
-          "${args[@]}" \
+          "${FIX_ARGS[@]}" \
+          "${EXT_ARGS[@]}" \
           --fail-on-find
       shell: bash
