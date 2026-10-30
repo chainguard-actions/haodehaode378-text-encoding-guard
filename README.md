@@ -6,9 +6,9 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 ## Versions
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v1.0.0 | [`v1.0.0`](https://github.com/chainguard-actions/haodehaode378-text-encoding-guard/tree/v1.0.0) | [`40a48b6`](https://github.com/haodehaode378/text-encoding-guard/commit/40a48b6cebb315d5065adc79b4e5b97c8b080df1) |
+| Version | Tag | Upstream commit | Hardening report |
+|---------|-----|-----------------|------------------|
+| v1.0.0 | [`v1.0.0`](https://github.com/chainguard-actions/haodehaode378-text-encoding-guard/tree/v1.0.0) | [`40a48b6`](https://github.com/haodehaode378/text-encoding-guard/commit/40a48b6cebb315d5065adc79b4e5b97c8b080df1) | [`HARDENING.md`](https://github.com/chainguard-actions/haodehaode378-text-encoding-guard/blob/v1.0.0/HARDENING.md) |
 
 ## Privacy
 
